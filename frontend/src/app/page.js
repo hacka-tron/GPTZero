@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { WebSocketService} from "../../api/WebSocketService";
+import { WebSocketService } from "../../api/WebSocketService";
 import { ChatResponse, ChatPrompt, TextArea } from "../components/chat";
 import { getPromptResponse } from "../../api/getPromptResponse";
 const RRML2HTML = require("../../utils/RRML2HTML");
@@ -17,6 +17,22 @@ export default function Home() {
   const [error, setError] = useState(null);
   const scrollContainerRef = useRef(null);
   const wsService = useRef(new WebSocketService("ws://localhost:8081/v1/stream"));
+
+  function conenctToWebsocket(){
+    const handleNewMessage = (data) => {
+      addMessage(data.substring(1, data.length - 1), agentTypes.richieRich);
+    };
+
+    const handleClose = () => {
+      setIsLoadingResponse(false);
+    };
+
+    const handleError = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    wsService.current.connect(handleNewMessage, handleClose, handleError);
+  }
 
   const handleTextAreaChange = (event) => {
     setPrompt(event.target.value);
@@ -48,6 +64,7 @@ export default function Home() {
   };
 
   const handleSubmit = async () => {
+    
     if (!prompt) {
       setError("Please enter a prompt.");
       return;
@@ -58,6 +75,7 @@ export default function Home() {
       setIsLoadingResponse(true);
       wsService.current.send(prompt); // Send message through the WebSocket service
       setPrompt("");
+      conenctToWebsocket();
     } catch (error) {
       setError("An error occurred. Please try again.");
       setIsLoadingResponse(false);
@@ -70,20 +88,7 @@ export default function Home() {
   }, [messages]);
 
   useEffect(() => {
-    const handleNewMessage = (data) => {
-      addMessage(data.substring(1,data.length-1), agentTypes.richieRich);
-    };
-
-    const handleClose = () => {
-      setIsLoadingResponse(false);
-      console.log("WebSocket closed.");
-    };
-
-    const handleError = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    wsService.current.connect(handleNewMessage, handleClose, handleError);
+    conenctToWebsocket();
 
     return () => {
       wsService.current.close();
