@@ -10,7 +10,7 @@ const rrmlElementToStyles = {
 };
 
 const RRML2HTML = (rrml) => {
-  let htmlString = rrml;
+  let htmlString = rrml.replace(/\\n/g, "");
   for (const [rrmlTag, htmlTag] of Object.entries(rrmlElementToHtmlElement)) {
     const style = rrmlElementToStyles[rrmlTag];
     const openTagRegex = new RegExp(`<${rrmlTag}>`, "g");
