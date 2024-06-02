@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { getPromptResponse } from "../../api/getPromptResponse";
+import { WebSocketService } from "../../api/WebSocketService";
 import { ChatResponse, ChatPrompt, TextArea } from "../components/chat";
 
 const agentTypes = {
@@ -14,6 +14,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState(null);
   const scrollContainerRef = useRef(null);
+  const wsService = new WebSocketService("ws://localhost:8081/v1/stream");
 
   const handleTextAreaChange = (event) => {
     setPrompt(event.target.value);
@@ -29,19 +30,18 @@ export default function Home() {
     ]);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = (prompt) => {
     if (!prompt) {
       setError("Please enter a prompt.");
       return;
     }
     setError(null);
     try {
-      setIsLoadingResponse(true);
+      //setIsLoadingResponse(true);
       addMessage(prompt, agentTypes.user);
-      const response = await getPromptResponse(prompt);
-      addMessage(response, agentTypes.richieRich);
+      wsService.send(prompt);
       setPrompt("");
-      setIsLoadingResponse(false);
+      //setIsLoadingResponse(false);
     } catch (error) {
       setError("An error occurred. Please try again.");
       setIsLoadingResponse(false);
@@ -52,6 +52,26 @@ export default function Home() {
     scrollContainerRef.current.scrollTop =
       scrollContainerRef.current.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    const handleNewMessage = (data) => {
+      addMessage(data, agentTypes.richieRich);
+    };
+
+    const handleClose = () => {
+      console.log("WebSocket closed.");
+    };
+
+    const handleError = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    wsService.connect(handleNewMessage, handleClose, handleError);
+
+    return () => {
+      wsService.close();
+    };
+  }, []);
 
   return (
     <main className="flex flex-col items-center w-full bg-gray-100 h-[93vh]">
