@@ -1,7 +1,9 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { WebSocketService } from "../../api/WebSocketService";
+import { WebSocketService} from "../../api/WebSocketService";
 import { ChatResponse, ChatPrompt, TextArea } from "../components/chat";
+import { getPromptResponse } from "../../api/getPromptResponse";
+const RRML2HTML = require("../../utils/RRML2HTML");
 
 const agentTypes = {
   user: "User",
@@ -14,34 +16,48 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState(null);
   const scrollContainerRef = useRef(null);
-  const wsService = new WebSocketService("ws://localhost:8081/v1/stream");
+  const wsService = useRef(new WebSocketService("ws://localhost:8081/v1/stream"));
 
   const handleTextAreaChange = (event) => {
     setPrompt(event.target.value);
   };
 
   const addMessage = (message, agent) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        agent,
-        contents: message,
-      },
-    ]);
+    setMessages(prevMessages => {
+      // Check if the last message in the array is from the same agent
+      if (prevMessages.length > 0 && prevMessages[prevMessages.length - 1].agent === agent) {
+        const updatedMessage = RRML2HTML(prevMessages[prevMessages.length - 1].contents + message);
+        return [
+          ...prevMessages.slice(0, -1), // Remove the last message
+          {
+            agent,
+            contents: updatedMessage,
+          }
+        ];
+      } else {
+        // If it's not, add a new message
+        return [
+          ...prevMessages,
+          {
+            agent,
+            contents: message,
+          }
+        ];
+      }
+    });
   };
 
-  const handleSubmit = (prompt) => {
+  const handleSubmit = async () => {
     if (!prompt) {
       setError("Please enter a prompt.");
       return;
     }
     setError(null);
     try {
-      //setIsLoadingResponse(true);
       addMessage(prompt, agentTypes.user);
-      wsService.send(prompt);
+      setIsLoadingResponse(true);
+      wsService.current.send(prompt); // Send message through the WebSocket service
       setPrompt("");
-      //setIsLoadingResponse(false);
     } catch (error) {
       setError("An error occurred. Please try again.");
       setIsLoadingResponse(false);
@@ -55,10 +71,11 @@ export default function Home() {
 
   useEffect(() => {
     const handleNewMessage = (data) => {
-      addMessage(data, agentTypes.richieRich);
+      addMessage(data.substring(1,data.length-1), agentTypes.richieRich);
     };
 
     const handleClose = () => {
+      setIsLoadingResponse(false);
       console.log("WebSocket closed.");
     };
 
@@ -66,10 +83,10 @@ export default function Home() {
       console.error("WebSocket error:", error);
     };
 
-    wsService.connect(handleNewMessage, handleClose, handleError);
+    wsService.current.connect(handleNewMessage, handleClose, handleError);
 
     return () => {
-      wsService.close();
+      wsService.current.close();
     };
   }, []);
 

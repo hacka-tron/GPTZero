@@ -26,7 +26,7 @@ async function getRichieRichResponseStream(prompt, onMessage, onClose, onError) 
 
   ws.on("message", (data) => {
     console.log("Received data: ", data);
-    if (onMessage) onMessage(data);
+    if (onMessage) onMessage(data.toString());
   });
 
   ws.on("close", () => {

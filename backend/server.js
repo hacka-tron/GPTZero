@@ -2,8 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const WebSocket = require("ws");
 const http = require("http");
+const url = require("url");
+const { getRichieRichResponseStream, getRichieRichResponse } = require("./clients/richieRich");
 
-const { getRichieRichResponse } = require("./clients/richieRich");
 const RRML2HTML = require("./utils/RRML2HTML");
 
 const PORT = 8081;
@@ -25,20 +26,15 @@ app.post("/", async (req, res) => {
 wsServer.on("connection", async (ws) => {
   ws.on("message", async (prompt) => {
     console.log("Received prompt from frontend: ", prompt);
-    const modelWs = await getRichieRichResponseStream(
+    await getRichieRichResponseStream(
       prompt,
-      (data) => ws.send(data),
+      (data) => ws.send(JSON.stringify(data)),
       () => ws.close(),
       (error) => {
         console.error(error);
         ws.close();
       }
     );
-
-    // Close the connection with the third-party WebSocket when frontend WebSocket is closed
-    ws.on("close", () => {
-      modelWs.close();
-    });
   });
 });
 
@@ -55,7 +51,6 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
 });
